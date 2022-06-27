@@ -27,9 +27,9 @@ export const rainbow = ({ chains }: RainbowOptions): Wallet => ({
         getUri: async () => {
           const { uri } = (await connector.getProvider()).connector;
 
-          return isAndroid()
-            ? uri
-            : `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`;
+          return `${
+            isAndroid() ? 'rainbow://' : 'https://rnbwapp.com/'
+          }wc?uri=${encodeURIComponent(uri)}`;
         },
       },
       qrCode: {
