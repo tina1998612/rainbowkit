@@ -1,10 +1,13 @@
 import { ConnectButton, useAddRecentTransaction } from '@rainbow-me/rainbowkit';
+import { Transaction } from 'ethers';
 
 import React, { ComponentProps, useEffect, useState } from 'react';
 import {
   useAccount,
   useNetwork,
+  useProvider,
   useSendTransaction,
+  useSigner,
   useSignMessage,
   useSignTypedData,
 } from 'wagmi';
@@ -16,6 +19,13 @@ type ChainStatus = ExtractString<ConnectButtonProps['chainStatus']>;
 
 const Example = () => {
   const { address, isConnected } = useAccount();
+  const provider = useProvider();
+  const { data: checkedSigner } = useSigner();
+  const uncheckedSigner =
+    // @ts-expect-error
+    (checkedSigner?.connectUnchecked?.() ??
+      checkedSigner) as typeof checkedSigner;
+
   const defaultProps = ConnectButton.__defaultProps;
 
   const [accountStatusSmallScreen, setAccountStatusSmallScreen] =
@@ -47,6 +57,13 @@ const Example = () => {
       value: 0,
     },
   });
+
+  const [populatedTransaction, setPopulatedTransaction] =
+    useState<
+      Parameters<NonNullable<typeof uncheckedSigner>['sendTransaction']>[0]
+    >();
+  const [populatedTransactionResponse, setPopulatedTransactionResponse] =
+    useState<{ status: 'success'; data: Transaction } | { status: 'error' }>();
 
   const {
     data: signingData,
@@ -215,46 +232,156 @@ const Example = () => {
             <h3>
               Example Actions {!isConnected && <span>(not connected)</span>}
             </h3>
-            <div style={{ display: 'flex', gap: 12, paddingBottom: 12 }}>
-              <button
-                disabled={!isConnected}
-                onClick={() => sendTransaction()}
-                type="button"
+            <div
+              style={{
+                alignItems: 'flex-start',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 20,
+                paddingBottom: 12,
+              }}
+            >
+              <div
+                style={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
               >
-                Send Transaction
-              </button>
-              <button
-                disabled={!isConnected}
-                onClick={() => signMessage()}
-                type="button"
+                <button
+                  disabled={!isConnected}
+                  onClick={() => sendTransaction()}
+                  type="button"
+                >
+                  Send Transaction
+                </button>
+                {transactionData && (
+                  <div>Transaction: {JSON.stringify(transactionData)}</div>
+                )}
+                {transactionError && (
+                  <div style={{ color: 'red' }}>Error sending transaction</div>
+                )}
+              </div>
+              <div
+                style={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
               >
-                Sign Message
-              </button>
-              <button
-                disabled={!isConnected || activeChain?.id !== 1}
-                onClick={() => signTypedData()}
-                type="button"
-              >
-                Sign Typed Data
-              </button>
-            </div>
-            <div>
-              {transactionData && (
-                <div>Transaction: {JSON.stringify(transactionData)}</div>
-              )}
-              {transactionError && <div>Error sending transaction</div>}
-              {signingData && (
-                <div style={{ wordBreak: 'break-all' }}>
-                  Data Signature: {signingData}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 12,
+                  }}
+                >
+                  <button
+                    disabled={!isConnected}
+                    onClick={async () => {
+                      const transaction = {
+                        to: address,
+                        value: 0,
+                      };
+
+                      const gasLimit = await provider.estimateGas(transaction);
+
+                      setPopulatedTransaction({
+                        gasLimit,
+                        ...transaction,
+                      });
+                    }}
+                    type="button"
+                  >
+                    Populate Transaction
+                  </button>
+                  <button
+                    disabled={!uncheckedSigner || !populatedTransaction}
+                    onClick={async () => {
+                      if (uncheckedSigner && populatedTransaction) {
+                        try {
+                          setPopulatedTransactionResponse(undefined);
+
+                          const response =
+                            await uncheckedSigner.sendTransaction(
+                              populatedTransaction
+                            );
+
+                          setPopulatedTransactionResponse({
+                            data: response,
+                            status: 'success',
+                          });
+                        } catch (err) {
+                          setPopulatedTransactionResponse({ status: 'error' });
+                        }
+                      }
+                    }}
+                    type="button"
+                  >
+                    Send Populated Transaction
+                  </button>
                 </div>
-              )}
-              {signingError && <div>Error signing message</div>}
-              {typedData && (
-                <div style={{ wordBreak: 'break-all' }}>
-                  Typed Data Signature: {typedData}
+                {populatedTransactionResponse?.status === 'success' && (
+                  <div>
+                    Transaction:{' '}
+                    {JSON.stringify(populatedTransactionResponse.data)}
+                  </div>
+                )}
+                {populatedTransactionResponse?.status === 'error' && (
+                  <div style={{ color: 'red' }}>Error sending transaction</div>
+                )}
+              </div>
+              <div
+                style={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                <button
+                  disabled={!isConnected}
+                  onClick={() => signMessage()}
+                  type="button"
+                >
+                  Sign Message
+                </button>
+                {signingData && (
+                  <div style={{ wordBreak: 'break-all' }}>
+                    Data Signature: {signingData}
+                  </div>
+                )}
+                {signingError && <div>Error signing message</div>}
+              </div>
+              <div
+                style={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                <button
+                  disabled={!isConnected || activeChain?.id !== 1}
+                  onClick={() => signTypedData()}
+                  type="button"
+                >
+                  Sign Typed Data
+                </button>
+                <div>
+                  {typedData && (
+                    <div style={{ wordBreak: 'break-all' }}>
+                      Typed Data Signature: {typedData}
+                    </div>
+                  )}
+                  {typedError && (
+                    <div style={{ color: 'red' }}>
+                      Error signing typed message
+                    </div>
+                  )}
                 </div>
-              )}
-              {typedError && <div>Error signing typed message</div>}
+              </div>
             </div>
           </div>
 
