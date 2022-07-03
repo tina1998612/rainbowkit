@@ -10,6 +10,8 @@ import {
 } from 'wagmi';
 import contractInterface from '../contract-abi.json';
 import FlipCard, { BackCard, FrontCard } from '../components/FlipCard';
+import NoSSRWrapper from '../components/NoSSRWarpper';
+
 
 const contractConfig = {
   addressOrName: '0x86fbbb1254c39602a7b067d5ae7e5c2bdfd61a30',
@@ -68,7 +70,8 @@ const Home: NextPage = () => {
               </p>
             )}
 
-            {isConnected && !isMinted && (
+            <NoSSRWrapper>
+            { isConnected && !isMinted && (
               <button
                 style={{ marginTop: 24 }}
                 disabled={isMintLoading || isMintStarted}
@@ -82,6 +85,7 @@ const Home: NextPage = () => {
                 {!isMintLoading && !isMintStarted && 'Mint'}
               </button>
             )}
+            </NoSSRWrapper>
           </div>
         </div>
 
@@ -134,4 +138,7 @@ const Home: NextPage = () => {
   );
 };
 
+// export default dynamic(() => Promise.resolve(Home), {
+//   ssr: false,
+// });
 export default Home;
